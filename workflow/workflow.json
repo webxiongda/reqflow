@@ -1,0 +1,261 @@
+{
+  "$schema": "./workflow.schema.json",
+  "name": "业务需求专家 Agent 工作流",
+  "version": "1.0.0",
+  "description": "把需求从进入到结项组织成 Agent 自主推进、人只在关键节点确认的闭环",
+  "principles": [
+    "上下文先行：事实不全时回退补上下文，不让 Agent 猜",
+    "门禁前置：验收标准在方案阶段就定死，不留到实现完再补",
+    "测试定义正确行为：先写测试再写代码，测试不是覆盖率装饰",
+    "反馈留痕：评论、验收、修正落在可追溯平台，不只留在聊天框",
+    "不直接升级：过程材料先留项目记忆，结项人工确认后才进长期 wiki"
+  ],
+  "layers": [
+    {
+      "id": "context-input",
+      "name": "上下文输入层",
+      "question": "Agent 靠什么理解业务",
+      "capabilities": ["长期业务知识", "当前需求材料", "代码事实", "运行证据"]
+    },
+    {
+      "id": "orchestration",
+      "name": "业务专家编排层",
+      "question": "下一步该做什么",
+      "capabilities": ["阶段判断", "门禁判定", "回退与人工介入决策"]
+    },
+    {
+      "id": "tool-execution",
+      "name": "工具执行层",
+      "question": "具体动作怎么落地",
+      "capabilities": ["需求平台", "代码与 CR", "配置平台", "日志与监控", "文档协作"]
+    },
+    {
+      "id": "feedback-learning",
+      "name": "反馈学习层",
+      "question": "下次能不能更好",
+      "capabilities": ["评论回收", "验收证据", "结项蒸馏", "skill 与提示词迭代"]
+    }
+  ],
+  "repositories": {
+    "code": {
+      "branch": "feature/<requirement-id>",
+      "purpose": "生产代码与测试"
+    },
+    "project-memory": {
+      "branch": "feature/<requirement-id>",
+      "purpose": "requirements / plan / progress / 验收证据 / CR 评论，按需求隔离"
+    },
+    "long-term-wiki": {
+      "branch": "master",
+      "purpose": "稳定业务规则、系统边界、验收规范、排障经验，经结项确认后写入"
+    }
+  },
+  "gates": [
+    {
+      "id": "requirements-confirmation",
+      "name": "需求澄清门禁",
+      "type": "quality",
+      "stage": "clarify",
+      "requiresHuman": true,
+      "artifact": "requirements.md",
+      "passCriteria": [
+        "目标行为与非目标边界已写明",
+        "验收标准可验证且有证据形式",
+        "风险与待确认问题已列出",
+        "人在 CR 上明确确认 requirements 准确表达需求"
+      ],
+      "onFail": "回到 clarify 补上下文，不进入 plan"
+    },
+    {
+      "id": "plan-confirmation",
+      "name": "技术方案门禁",
+      "type": "quality",
+      "stage": "plan",
+      "requiresHuman": true,
+      "artifact": "plan.md",
+      "passCriteria": [
+        "现状、目标、不做、影响范围、核心改动点、风险、回滚已写明",
+        "验收方式、测试策略、验证入口已写进 plan",
+        "正例 / 反例 / 回归三类验收场景齐备",
+        "配置 schema 已创建并校验",
+        "人在 CR 上确认方案"
+      ],
+      "onFail": "回到 plan 修订，不进入 execute"
+    },
+    {
+      "id": "internal-quality",
+      "name": "内部质量门禁",
+      "type": "quality",
+      "stage": "execute",
+      "requiresHuman": false,
+      "enforcedBy": "git pre-push hook",
+      "artifact": "progress.md",
+      "checks": [
+        "diff-to-test：每处生产代码行为变化都有测试锚点",
+        "lint / PMD：规则类问题由工具捕获",
+        "unit test：全量单测通过",
+        "Agent 结构化 self review：待 push diff 的可执行问题清零"
+      ],
+      "onFail": "回到 execute 修复后重跑门禁，不得绕过 hook"
+    },
+    {
+      "id": "release-confirmation",
+      "name": "发布确认",
+      "type": "approval",
+      "stage": "release",
+      "requiresHuman": true,
+      "artifact": "verification.md",
+      "passCriteria": [
+        "独立项目环境验收通过并留有证据",
+        "变更材料、风险评估、回滚预案齐备",
+        "人确认后才允许主预发 / 线上发布"
+      ],
+      "onFail": "停在 release，Agent 不自动执行主预发或线上发布"
+    }
+  ],
+  "stages": [
+    {
+      "id": "intake",
+      "index": 0,
+      "name": "需求进入",
+      "layer": "context-input",
+      "skill": "skills/00-intake/SKILL.md",
+      "inputs": ["需求工作项", "PRD", "issue 评论", "长期 wiki", "codemap", "历史口径"],
+      "outputs": ["context-snapshot.md"],
+      "autonomous": true,
+      "gate": null,
+      "tools": ["requirement-platform", "doc-reader", "wiki", "codemap"],
+      "stopWhen": ["事实源缺失", "需求材料互相冲突"]
+    },
+    {
+      "id": "clarify",
+      "index": 1,
+      "name": "需求澄清",
+      "layer": "orchestration",
+      "skill": "skills/01-clarify/SKILL.md",
+      "inputs": ["context-snapshot.md"],
+      "outputs": ["requirements.md"],
+      "autonomous": true,
+      "gate": "requirements-confirmation",
+      "tools": ["requirement-platform", "cr-comments"],
+      "stopWhen": ["验收标准不可验证", "边界口径未确认", "G1 未通过"]
+    },
+    {
+      "id": "plan",
+      "index": 2,
+      "name": "技术方案",
+      "layer": "orchestration",
+      "skill": "skills/02-plan/SKILL.md",
+      "inputs": ["requirements.md", "context-snapshot.md"],
+      "outputs": ["plan.md"],
+      "autonomous": true,
+      "gate": "plan-confirmation",
+      "tools": ["codemap", "config-cli", "cr-comments"],
+      "stopWhen": ["验收方式未定义", "配置 schema 未校验", "G2 未通过"]
+    },
+    {
+      "id": "execute",
+      "index": 3,
+      "name": "实现与内部质量",
+      "layer": "tool-execution",
+      "skill": "skills/03-execute/SKILL.md",
+      "inputs": ["requirements.md", "plan.md"],
+      "outputs": ["progress.md"],
+      "autonomous": true,
+      "gate": "internal-quality",
+      "tools": ["git", "test-runner", "lint", "self-review"],
+      "stopWhen": ["测试未先行", "diff-to-test 无映射", "G3 拒绝 push"]
+    },
+    {
+      "id": "collaborate",
+      "index": 4,
+      "name": "CR / Issue 协同",
+      "layer": "feedback-learning",
+      "skill": "skills/04-collaborate/SKILL.md",
+      "inputs": ["requirements.md", "plan.md", "progress.md"],
+      "outputs": ["decision-log.md"],
+      "autonomous": true,
+      "gate": null,
+      "concurrent": true,
+      "tools": ["cr-comments", "milestone-comments"],
+      "stopWhen": ["存在 unresolved 评论", "评论涉及范围变更但没回退到需求或方案阶段"]
+    },
+    {
+      "id": "verify",
+      "index": 5,
+      "name": "验收验证",
+      "layer": "tool-execution",
+      "skill": "skills/05-verify/SKILL.md",
+      "inputs": ["requirements.md", "plan.md", "progress.md"],
+      "outputs": ["verification.md"],
+      "autonomous": true,
+      "gate": null,
+      "tools": ["isolated-env", "service-invoke", "log-query", "metrics"],
+      "stopWhen": ["正例 / 反例 / 回归任一未取证", "证据不可回读"]
+    },
+    {
+      "id": "release",
+      "index": 6,
+      "name": "发布与变更观察",
+      "layer": "tool-execution",
+      "skill": "skills/06-release/SKILL.md",
+      "inputs": ["verification.md"],
+      "outputs": [],
+      "autonomous": false,
+      "gate": "release-confirmation",
+      "tools": ["release-platform", "log-query", "metrics"],
+      "stopWhen": ["人未确认发布", "观察期内发现异常"]
+    },
+    {
+      "id": "closeout",
+      "index": 7,
+      "name": "结项沉淀",
+      "layer": "feedback-learning",
+      "skill": "skills/07-closeout/SKILL.md",
+      "inputs": ["decision-log.md", "verification.md", "progress.md"],
+      "outputs": ["closeout.md"],
+      "autonomous": true,
+      "gate": null,
+      "humanReview": ["wiki-candidates", "skill-candidates"],
+      "tools": ["wiki-writer", "cr-comments"],
+      "stopWhen": ["蒸馏候选未经人工确认", "项目记忆 feature 分支未合并回主干"]
+    }
+  ],
+  "artifacts": {
+    "context-snapshot.md": {
+      "stage": "intake",
+      "repo": "project-memory",
+      "template": "templates/context-snapshot.md"
+    },
+    "requirements.md": {
+      "stage": "clarify",
+      "repo": "project-memory",
+      "template": "templates/requirements.md"
+    },
+    "plan.md": {
+      "stage": "plan",
+      "repo": "project-memory",
+      "template": "templates/plan.md"
+    },
+    "progress.md": {
+      "stage": "execute",
+      "repo": "project-memory",
+      "template": "templates/progress.md"
+    },
+    "decision-log.md": {
+      "stage": "collaborate",
+      "repo": "project-memory",
+      "template": "templates/decision-log.md"
+    },
+    "verification.md": {
+      "stage": "verify",
+      "repo": "project-memory",
+      "template": "templates/verification.md"
+    },
+    "closeout.md": {
+      "stage": "closeout",
+      "repo": "project-memory",
+      "template": "templates/closeout.md"
+    }
+  }
+}

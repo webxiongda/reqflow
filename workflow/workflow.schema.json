@@ -1,0 +1,113 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://webxiongda.github.io/reqflow/workflow.schema.json",
+  "title": "reqflow workflow",
+  "type": "object",
+  "required": ["name", "version", "description", "principles", "layers", "repositories", "gates", "stages", "artifacts"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "name": { "type": "string", "minLength": 1 },
+    "version": { "type": "string", "pattern": "^\\d+\\.\\d+\\.\\d+$" },
+    "description": { "type": "string", "minLength": 1 },
+    "principles": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "minItems": 1
+    },
+    "layers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "question", "capabilities"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "enum": ["context-input", "orchestration", "tool-execution", "feedback-learning"] },
+          "name": { "type": "string" },
+          "question": { "type": "string" },
+          "capabilities": { "type": "array", "items": { "type": "string" }, "minItems": 1 }
+        }
+      }
+    },
+    "repositories": {
+      "type": "object",
+      "required": ["code", "project-memory", "long-term-wiki"],
+      "additionalProperties": false,
+      "properties": {
+        "code": { "$ref": "#/definitions/repo" },
+        "project-memory": { "$ref": "#/definitions/repo" },
+        "long-term-wiki": { "$ref": "#/definitions/repo" }
+      }
+    },
+    "gates": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "type", "stage", "requiresHuman", "onFail"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["quality", "approval"] },
+          "stage": { "type": "string" },
+          "requiresHuman": { "type": "boolean" },
+          "enforcedBy": { "type": "string" },
+          "artifact": { "type": "string" },
+          "passCriteria": { "type": "array", "items": { "type": "string" } },
+          "checks": { "type": "array", "items": { "type": "string" } },
+          "onFail": { "type": "string" }
+        }
+      }
+    },
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "index", "name", "layer", "skill", "inputs", "outputs", "autonomous", "tools", "stopWhen"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string" },
+          "index": { "type": "integer", "minimum": 0 },
+          "name": { "type": "string" },
+          "layer": { "type": "string" },
+          "skill": { "type": "string" },
+          "inputs": { "type": "array", "items": { "type": "string" } },
+          "outputs": { "type": "array", "items": { "type": "string" } },
+          "autonomous": { "type": "boolean" },
+          "gate": { "type": ["string", "null"] },
+          "concurrent": { "type": "boolean" },
+          "humanReview": { "type": "array", "items": { "type": "string" } },
+          "tools": { "type": "array", "items": { "type": "string" } },
+          "stopWhen": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["stage", "repo", "template"],
+        "additionalProperties": false,
+        "properties": {
+          "stage": { "type": "string" },
+          "repo": { "type": "string", "enum": ["code", "project-memory", "long-term-wiki"] },
+          "template": { "type": "string" }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "repo": {
+      "type": "object",
+      "required": ["branch", "purpose"],
+      "additionalProperties": false,
+      "properties": {
+        "branch": { "type": "string" },
+        "purpose": { "type": "string" }
+      }
+    }
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "name": "reqflow",
+  "version": "1.0.0",
+  "description": "端到端业务需求 Agent 工作流：上下文组织、三道质量门禁、TDD 实现、真实环境验收、结项蒸馏",
+  "type": "module",
+  "bin": {
+    "reqflow": "./bin/reqflow.mjs"
+  },
+  "scripts": {
+    "reqflow": "node bin/reqflow.mjs",
+    "validate": "node bin/reqflow.mjs validate",
+    "selfcheck": "node scripts/selfcheck.mjs"
+  },
+  "keywords": [
+    "agent",
+    "workflow",
+    "requirements",
+    "tdd",
+    "quality-gate",
+    "context-engineering",
+    "llm"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "bin",
+    "workflow",
+    "templates",
+    "skills",
+    "hooks",
+    "docs",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ]
+}

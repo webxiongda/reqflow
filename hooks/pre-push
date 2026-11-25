@@ -1,0 +1,129 @@
+#!/usr/bin/env node
+// G3 内部质量门：由 reqflow hooks install 复制到 .git/hooks/pre-push。
+// 无 .reqflow.json 时直接放行，不干扰非工作流仓库。
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync, execSync } from 'node:child_process';
+
+let root;
+try {
+  root = execFileSync('git', ['rev-parse', '--show-toplevel'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim();
+} catch {
+  process.exit(0);
+}
+
+const statePath = path.join(root, '.reqflow.json');
+if (!fs.existsSync(statePath)) process.exit(0);
+
+let state;
+try {
+  state = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+} catch {
+  console.error('✗ G3 内部质量门：.reqflow.json 解析失败');
+  process.exit(1);
+}
+
+const q = state.quality ?? {};
+if (q.enabled === false) {
+  console.log('! G3 质量门已显式关闭（quality.enabled=false），本次跳过');
+  process.exit(0);
+}
+
+function git(...args) {
+  try {
+    return execFileSync('git', args, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] }).toString();
+  } catch {
+    return null;
+  }
+}
+
+const base = q.base || 'HEAD~1';
+let files = git('diff', '--name-only', `${base}...HEAD`);
+if (files === null || files.trim() === '') {
+  files = git('diff-tree', '--no-commit-id', '--name-only', '-r', 'HEAD') || '';
+}
+const changed = files.split('\n').map((s) => s.trim()).filter(Boolean);
+if (changed.length === 0) {
+  console.log('✓ G3：本次无代码变更，跳过');
+  process.exit(0);
+}
+
+function esc(s) {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function globToRegExp(glob) {
+  let re = '^';
+  for (let i = 0; i < glob.length; i++) {
+    const c = glob[i];
+    if (c === '*') {
+      if (glob[i + 1] === '*') {
+        if (glob[i + 2] === '/') { re += '(?:.*/)?'; i += 2; }
+        else { re += '.*'; i += 1; }
+      } else re += '[^/]*';
+    } else if (c === '?') {
+      re += '[^/]';
+    } else if (c === '{') {
+      const end = glob.indexOf('}', i + 1);
+      if (end > -1) { re += `(?:${glob.slice(i + 1, end).split(',').map(esc).join('|')})`; i = end; }
+      else re += '\\{';
+    } else re += esc(c);
+  }
+  return new RegExp(`${re}$`);
+}
+
+function matchAny(file, globs) {
+  return (globs || []).some((g) => globToRegExp(g).test(file));
+}
+
+const sourceGlobs = q.sourceGlobs?.length ? q.sourceGlobs : ['src/**/*.{ts,tsx,js,jsx,java}'];
+const testGlobs = q.testGlobs?.length ? q.testGlobs : ['**/*.{test,spec}.{ts,tsx,js,jsx}', '**/__tests__/**', 'src/test/**'];
+const source = changed.filter((f) => matchAny(f, sourceGlobs));
+const tests = changed.filter((f) => matchAny(f, testGlobs));
+
+if (source.length && tests.length === 0) {
+  console.error(`✗ G3 diff-to-test 失败：本次改动了 ${source.length} 个生产文件，但没有任何测试文件变更`);
+  console.error(`  生产文件：${source.join(', ')}`);
+  process.exit(1);
+}
+for (const file of source) {
+  const stem = path.basename(file).replace(/\.[^.]+$/, '');
+  const hit = tests.some((t) => {
+    const testStem = path.basename(t).replace(/\.[^.]+$/, '');
+    return testStem === stem || testStem.startsWith(stem) || testStem.includes(stem);
+  });
+  if (!hit) {
+    console.error(`✗ G3 diff-to-test 失败：${file} 没有对应的测试锚点`);
+    console.error('  每处生产代码行为变化都要有具体测试，不能只靠「跑了一遍模块回归」');
+    process.exit(1);
+  }
+}
+console.log(`✓ G3 diff-to-test 通过：${source.length} 个生产文件 ↔ ${tests.length} 个测试文件`);
+
+for (const [name, command] of Object.entries(q.commands ?? {})) {
+  if (typeof command !== 'string' || command.trim() === '') {
+    console.log(`! ${name} 未配置，跳过（不产生虚假通过）`);
+    continue;
+  }
+  console.log(`→ 执行 ${name}：${command}`);
+  try {
+    execSync(command, { cwd: root, stdio: 'inherit' });
+    console.log(`✓ ${name} 通过`);
+  } catch {
+    console.error(`✗ ${name} 失败，拒绝 push`);
+    process.exit(1);
+  }
+}
+
+const at = new Date().toISOString();
+state.gates = state.gates ?? {};
+state.gates['internal-quality'] = {
+  status: 'passed',
+  approver: 'git-pre-push-hook',
+  evidence: `diff-to-test ${source.length}/${tests.length}`,
+  at,
+};
+state.quality = q;
+state.quality.lastPassedAt = at;
+fs.writeFileSync(statePath, `${JSON.stringify(state, null, 2)}\n`);
+console.log('✓ G3 内部质量门通过，允许 push');
