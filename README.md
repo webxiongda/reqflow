@@ -1,10 +1,21 @@
+<div align="center">
+
+![reqflow hero](./docs/assets/hero.svg)
+
 # reqflow
 
-> 端到端业务需求 Agent 工作流：把 PRD 到上线的完整研发过程，组织成 Agent 能自主推进、人只在关键节点确认的闭环。
+**从 PRD 到上线，一条能自主推进的闭环。**
+
+端到端业务需求 Agent 工作流 · 四层架构 · 八阶段闭环 · 三道质量门禁 · 零运行时依赖
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18-green.svg)](https://nodejs.org)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![Stars](https://img.shields.io/github/stars/webxiongda/reqflow?style=social)](https://github.com/webxiongda/reqflow/stargazers)
+
+[🎯 在线展示页](https://webxiongda.github.io/reqflow/) · [📖 快速开始](#快速开始) · [🔧 接入指南](./docs/adoption.md)
+
+</div>
 
 AI 写代码本身已经不是瓶颈。**代码之外的串联成本**才是：上下文反复梳理、平台来回切换、反馈留在聊天框里蒸发、下一次需求又从零开始。
 

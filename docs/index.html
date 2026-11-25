@@ -1,0 +1,362 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="reqflow — 把 PRD 到上线的完整研发过程，组织成 Agent 能自主推进、人只在关键节点确认的闭环。四层架构、三道质量门禁、TDD 实现、真实环境验收、结项蒸馏。">
+<meta property="og:title" content="reqflow · 端到端业务需求 Agent 工作流">
+<meta property="og:description" content="AI 写代码不是瓶颈，代码之外的串联成本才是。reqflow 把上下文、工具、人工确认和反馈沉淀组织成一个闭环。">
+<meta property="og:image" content="https://raw.githubusercontent.com/webxiongda/reqflow/main/docs/assets/hero.svg">
+<meta property="og:type" content="website">
+<title>reqflow · 端到端业务需求 Agent 工作流</title>
+<style>
+:root{
+  --bg:#070b16;--bg2:#0d1424;--panel:#111a2e;--line:rgba(148,163,184,.16);
+  --text:#e2e8f0;--muted:#94a3b8;--dim:#64748b;
+  --cyan:#22d3ee;--teal:#2dd4bf;--amber:#fbbf24;--violet:#818cf8;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  line-height:1.7;-webkit-font-smoothing:antialiased}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:-1;
+  background:radial-gradient(900px 500px at 15% -5%,rgba(34,211,238,.12),transparent 65%),
+             radial-gradient(800px 500px at 90% 10%,rgba(129,140,248,.12),transparent 60%),
+             linear-gradient(180deg,#070b16,#0a1020 55%,#070b16)}
+a{color:inherit;text-decoration:none}
+.wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+.muted{color:var(--muted)}.dim{color:var(--dim)}
+.gradient{background:linear-gradient(100deg,var(--cyan),var(--teal) 45%,var(--violet));
+  -webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* nav */
+header{position:sticky;top:0;z-index:50;backdrop-filter:blur(14px);
+  background:rgba(7,11,22,.78);border-bottom:1px solid var(--line)}
+nav{display:flex;align-items:center;gap:28px;height:64px}
+.logo{display:flex;align-items:center;gap:10px;font-weight:800;font-size:19px;letter-spacing:-.4px}
+.logo-mark{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;
+  background:linear-gradient(135deg,var(--cyan),var(--violet));color:#04121c;font-size:15px;font-weight:900}
+nav .links{display:flex;gap:22px;margin-left:auto;font-size:14px;color:var(--muted)}
+nav .links a:hover{color:var(--cyan)}
+.gh{display:inline-flex;align-items:center;gap:7px;padding:8px 14px;border:1px solid var(--line);
+  border-radius:9px;font-size:13px;font-weight:600;transition:.18s}
+.gh:hover{border-color:var(--cyan);color:var(--cyan);transform:translateY(-1px)}
+
+/* hero */
+.hero{padding:78px 0 44px;text-align:center}
+.pill{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;
+  border:1px solid rgba(45,212,191,.35);background:rgba(45,212,191,.07);
+  color:var(--teal);font-size:12.5px;font-weight:600;letter-spacing:.2px}
+.pill .dot{width:6px;height:6px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal)}
+h1{font-size:clamp(38px,6.4vw,68px);line-height:1.16;letter-spacing:-2.2px;margin:26px 0 18px;font-weight:850}
+.hero p.lead{max-width:720px;margin:0 auto;font-size:clamp(16px,2vw,19px);color:#aab8cc}
+.cta{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin:34px 0 22px}
+.btn{display:inline-flex;align-items:center;gap:8px;padding:13px 22px;border-radius:11px;
+  font-size:14px;font-weight:700;transition:.18s;border:1px solid transparent;cursor:pointer}
+.btn.primary{background:linear-gradient(100deg,var(--cyan),var(--teal));color:#04121c;
+  box-shadow:0 8px 26px rgba(34,211,238,.24)}
+.btn.primary:hover{transform:translateY(-2px);box-shadow:0 12px 34px rgba(34,211,238,.35)}
+.btn.ghost{border-color:var(--line);background:rgba(255,255,255,.025)}
+.btn.ghost:hover{border-color:var(--cyan);color:var(--cyan)}
+.metric{display:flex;gap:30px;justify-content:center;flex-wrap:wrap;margin-top:26px;
+  font-size:13px;color:var(--dim)}
+.metric b{color:var(--text);font-size:17px;font-family:var(--mono)}
+
+/* terminal */
+.terminal{max-width:860px;margin:46px auto 0;border:1px solid var(--line);border-radius:14px;
+  background:#0a1020;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.45);text-align:left;position:relative}
+.terminal .bar{display:flex;align-items:center;gap:7px;padding:12px 16px;
+  border-bottom:1px solid var(--line);background:rgba(255,255,255,.02)}
+.terminal .bar i{width:10px;height:10px;border-radius:50%;display:block}
+.terminal .bar .t{margin-left:10px;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.terminal pre{margin:0;padding:20px 22px;overflow:auto;font-family:var(--mono);font-size:13px;line-height:1.9;color:#cbd5e1}
+.terminal .c{color:var(--dim)}.terminal .g{color:var(--teal)}.terminal .y{color:var(--amber)}
+.cmd{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.copy{font-family:inherit;font-size:11px;color:var(--muted);border:1px solid var(--line);
+  background:rgba(255,255,255,.03);border-radius:6px;padding:2px 9px;cursor:pointer;white-space:nowrap;margin-left:auto}
+.copy:hover{color:var(--cyan);border-color:var(--cyan)}
+
+/* sections */
+section{padding:76px 0;border-top:1px solid rgba(148,163,184,.08)}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:1.6px;color:var(--cyan);text-transform:uppercase}
+h2{font-size:clamp(27px,3.8vw,40px);letter-spacing:-1.1px;margin:12px 0 12px;line-height:1.25}
+.sub{color:var(--muted);max-width:720px;font-size:15.5px;margin:0 0 34px}
+
+/* layers */
+.grid4{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}
+.card{background:linear-gradient(160deg,rgba(17,26,46,.92),rgba(11,17,30,.9));
+  border:1px solid var(--line);border-radius:14px;padding:22px;transition:.2s}
+.card:hover{transform:translateY(-3px);border-color:rgba(34,211,238,.45)}
+.card .num{font-family:var(--mono);font-size:11px;color:var(--cyan);letter-spacing:1px}
+.card h3{margin:10px 0 6px;font-size:17px}
+.card p{margin:0;color:var(--muted);font-size:13.5px}
+.card .q{margin-top:12px;font-size:12px;color:var(--dim);font-family:var(--mono)}
+
+/* stages */
+.stagebar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px}
+.stage{flex:1 1 108px;min-width:0;border:1px solid var(--line);border-radius:11px;
+  background:rgba(255,255,255,.02);padding:13px 10px;text-align:center;cursor:pointer;transition:.18s}
+.stage:hover{border-color:rgba(34,211,238,.5)}
+.stage.active{border-color:var(--cyan);background:rgba(34,211,238,.09);box-shadow:0 0 0 1px rgba(34,211,238,.15) inset}
+.stage .i{font-family:var(--mono);font-size:11px;color:var(--dim)}
+.stage .n{font-size:14px;font-weight:650;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.detail{border:1px solid var(--line);border-radius:14px;padding:24px;
+  background:linear-gradient(120deg,rgba(34,211,238,.05),rgba(129,140,248,.03));min-height:190px}
+.detail .top{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.detail h3{margin:0;font-size:21px}
+.tag{font-size:11px;font-family:var(--mono);padding:4px 9px;border-radius:6px;border:1px solid var(--line);color:var(--muted)}
+.tag.auto{border-color:rgba(45,212,191,.4);color:var(--teal)}
+.tag.human{border-color:rgba(251,191,36,.4);color:var(--amber)}
+.detail dl{display:grid;grid-template-columns:82px 1fr;gap:7px 14px;margin:0;font-size:14px}
+.detail dt{color:var(--dim)}.detail dd{margin:0;color:#cbd5e1}
+
+/* gates */
+.gates{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.gate{border:1px solid rgba(251,191,36,.28);border-radius:14px;padding:22px;
+  background:linear-gradient(160deg,rgba(251,191,36,.07),rgba(11,17,30,.85))}
+.gate .id{font-family:var(--mono);font-size:12px;color:var(--amber);letter-spacing:1px}
+.gate h3{margin:8px 0 8px;font-size:18px}
+.gate ul{margin:0 0 12px;padding-left:18px;color:var(--muted);font-size:13.5px}
+.gate .by{font-size:12px;color:#cbd5e1;border-top:1px solid rgba(251,191,36,.18);padding-top:11px}
+.gate.appr{border-color:rgba(129,140,248,.3);background:linear-gradient(160deg,rgba(129,140,248,.07),rgba(11,17,30,.85))}
+.gate.appr .id,.gate.appr .by{color:var(--violet)}
+
+/* compare */
+.compare{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:720px){.compare{grid-template-columns:1fr}}
+.compare .col{border:1px solid var(--line);border-radius:14px;padding:24px;background:rgba(255,255,255,.02)}
+.compare .col.after{border-color:rgba(34,211,238,.4);background:rgba(34,211,238,.05)}
+.compare h3{margin:0 0 14px;font-size:17px}
+.compare ul{margin:0;padding-left:18px;color:var(--muted);font-size:14px}
+.compare li{margin-bottom:8px}
+.compare .after li{color:#cbd5e1}
+
+/* codes */
+.steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:14px}
+.step{border:1px solid var(--line);border-radius:14px;padding:22px;background:rgba(255,255,255,.02)}
+.step .k{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:rgba(34,211,238,.12);color:var(--cyan);font-family:var(--mono);font-weight:700;font-size:13px}
+.step h3{font-size:16px;margin:13px 0 6px}
+.step p{margin:0;color:var(--muted);font-size:13.5px}
+
+/* footer */
+footer{border-top:1px solid var(--line);padding:34px 0;color:var(--dim);font-size:13px}
+footer .row{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;align-items:center}
+footer a:hover{color:var(--cyan)}
+.reveal{opacity:0;transform:translateY(14px);transition:.55s ease}
+.reveal.show{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <a class="logo" href="#top"><span class="logo-mark">R</span>reqflow</a>
+    <div class="links">
+      <a href="#why">为什么需要</a>
+      <a href="#arch">架构</a>
+      <a href="#stages">阶段</a>
+      <a href="#gates">门禁</a>
+      <a href="#start">快速开始</a>
+    </div>
+    <a class="gh" href="https://github.com/webxiongda/reqflow" target="_blank" rel="noopener">★ GitHub</a>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap">
+    <div class="hero">
+      <span class="pill"><span class="dot"></span>已在真实业务需求上跑通的研发闭环</span>
+      <h1>AI 写代码不是瓶颈<br><span class="gradient">串联成本才是</span></h1>
+      <p class="lead">reqflow 把需求从进入到结项的完整过程，组织成 Agent 能自主推进、人只在关键节点确认的闭环。上下文、工具、反馈不再是散落在对话和平台里的碎片。</p>
+      <div class="cta">
+        <a class="btn primary" href="https://github.com/webxiongda/reqflow" target="_blank" rel="noopener">在 GitHub 上查看 →</a>
+        <a class="btn ghost" href="#start">复制安装命令</a>
+      </div>
+      <div class="metric">
+        <span><b>4</b> 层能力</span><span><b>8</b> 个阶段</span><span><b>3</b> 道质量门禁</span><span><b>0</b> 运行时依赖</span>
+      </div>
+
+      <div class="terminal">
+        <div class="bar"><i style="background:#fb7185"></i><i style="background:#fbbf24"></i><i style="background:#34d399"></i><span class="t">terminal — reqflow</span><button class="copy" type="button" data-copy="git clone https://github.com/webxiongda/reqflow.git">复制</button></div>
+<pre><span class="c">$</span> git clone https://github.com/webxiongda/reqflow.git
+<span class="c">$</span> cd reqflow
+<span class="c">$</span> npm run selfcheck
+<span class="g">✓</span> workflow.json 校验通过
+<span class="g">✓</span> init 生成全部产物模板与状态文件
+<span class="g">✓</span> advance 与 gate 正确写入状态
+<span class="g">✓</span> 质量门反例：无测试锚点的生产代码变更被拒绝
+<span class="g">✓</span> 质量门正例：diff-to-test 映射通过后放行
+<span class="y">→</span> 全部自检通过（12 项）</pre>
+      </div>
+    </div>
+  </div>
+
+  <section id="why">
+    <div class="wrap reveal">
+      <div class="eyebrow">01 / 问题</div>
+      <h2>真正贵的，是代码之外的串联</h2>
+      <p class="sub">每个环节 AI 都能参与一点。但能力散落在不同对话、工具和命令里，最后负责串起来的还是人——反复梳理上下文、切换平台、判断下一步、回忆哪些经验要留下。</p>
+      <div class="compare">
+        <div class="col">
+          <h3 class="muted">之前 · 人肉串联</h3>
+          <ul>
+            <li>需求文档、历史口径、代码事实分散在各处，每次重新讲背景</li>
+            <li>需求平台 / CR / 配置 / 日志 / 监控手动来回切，上下文一路丢</li>
+            <li>澄清和 CR 的反馈留在聊天框，需求结束就蒸发</li>
+            <li>验收靠「人肉点一下看看」，没有可回读的证据</li>
+            <li>下个类似需求，同样的解释再来一遍</li>
+          </ul>
+        </div>
+        <div class="col after">
+          <h3 class="gradient">之后 · Agent 闭环</h3>
+          <ul>
+            <li>按阶段拉取上下文快照，事实不全就回退补齐，不让 Agent 猜</li>
+            <li>平台能力变成可调用的工具槽位，Agent 按阶段串起来</li>
+            <li>反馈落在 CR 评论与 decision-log，结项时蒸馏成长期知识</li>
+            <li>独立环境里用日志 / 指标 / 调用返回取证，写进 verification</li>
+            <li>每做一个需求，Agent 的理解基线更高，人要解释的更少</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="arch">
+    <div class="wrap reveal">
+      <div class="eyebrow">02 / 静态架构</div>
+      <h2>四层能力，一条闭环</h2>
+      <p class="sub">不是并列模块，而是从事实输入、阶段判断、工具落地到反馈回收的一条链。反馈学习层把稳定知识蒸馏回长期 wiki，下一次需求的起点就更高。</p>
+      <div class="grid4">
+        <div class="card"><div class="num">LAYER 01</div><h3>上下文输入层</h3><p>按阶段拉取长期业务知识、当前需求材料、代码事实与运行证据，而不是一次性塞满 prompt。</p><div class="q">Agent 靠什么理解业务？</div></div>
+        <div class="card"><div class="num">LAYER 02</div><h3>业务专家编排层</h3><p>阶段判断、门禁判定、回退与人工介入决策全部可复现，不再靠人盯着下一步。</p><div class="q">下一步该做什么？</div></div>
+        <div class="card"><div class="num">LAYER 03</div><h3>工具执行层</h3><p>需求平台、代码与 CR、配置、日志监控、文档变成按阶段可调用的能力槽位。</p><div class="q">具体动作怎么落地？</div></div>
+        <div class="card"><div class="num">LAYER 04</div><h3>反馈学习层</h3><p>评论、验收证据与人工修正持续积累，结项时选择性蒸馏成知识与 skill 改进。</p><div class="q">下次能不能更好？</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="stages">
+    <div class="wrap reveal">
+      <div class="eyebrow">03 / 纵向闭环</div>
+      <h2>一个需求怎么走完</h2>
+      <p class="sub">点选任意阶段查看它的输入、产物与停止条件。G1 / G2 由人在 CR 上确认，G3 由 git hook 自动执行，发布动作始终由人完成。</p>
+      <div class="stagebar" id="stagebar"></div>
+      <div class="detail" id="detail"></div>
+    </div>
+  </section>
+
+  <section id="gates">
+    <div class="wrap reveal">
+      <div class="eyebrow">04 / 质量门禁</div>
+      <h2>三道质量门 + 一道人工审批</h2>
+      <p class="sub">门禁不是「提醒 Agent 注意」，而是「不满足就不能往下走」。G3 尤其不靠提示词自觉——它是一条绕不过去的 git hook。</p>
+      <div class="gates">
+        <div class="gate"><div class="id">G1 · QUALITY</div><h3>需求澄清门</h3>
+          <ul><li>目标行为与非目标边界已写明</li><li>验收标准可验证且有证据形式</li><li>风险与待确认问题已列出</li></ul>
+          <div class="by">人把关 · 在 CR 上确认 requirements</div></div>
+        <div class="gate"><div class="id">G2 · QUALITY</div><h3>技术方案门</h3>
+          <ul><li>现状 / 改动点 / 风险 / 回滚齐备</li><li>验收方式在方案阶段就定死</li><li>配置 schema 已创建并校验</li></ul>
+          <div class="by">人把关 · 在 CR 上确认 plan</div></div>
+        <div class="gate"><div class="id">G3 · QUALITY</div><h3>内部质量门</h3>
+          <ul><li>diff-to-test：每处改动都有测试锚点</li><li>lint / PMD 与全量单测通过</li><li>Agent 对完整 diff 做结构化 review</li></ul>
+          <div class="by">git pre-push hook · 无人值守，不做就推不上去</div></div>
+        <div class="gate appr"><div class="id">G4 · APPROVAL</div><h3>发布确认</h3>
+          <ul><li>独立环境验收通过并留有证据</li><li>变更材料、风险评估、回滚预案齐备</li><li>观察期继续回读日志与指标</li></ul>
+          <div class="by">人确认并执行 · Agent 不自动发布</div></div>
+      </div>
+    </div>
+  </section>
+
+  <section id="start">
+    <div class="wrap reveal">
+      <div class="eyebrow">05 / 接入</div>
+      <h2>三步就能跑起来</h2>
+      <p class="sub">CLI 零运行时依赖，不调用任何外部平台；skill 是框架无关的 Markdown，可以塞进任何 Agent 体系。</p>
+      <div class="steps">
+        <div class="step"><div class="k">01</div><h3>装质量门</h3><p><code>reqflow hooks install</code> 把 G3 绑到 git push，立刻获得 diff-to-test + lint + test 硬卡口。</p></div>
+        <div class="step"><div class="k">02</div><h3>初始化需求</h3><p><code>reqflow init &lt;name&gt;</code> 生成上下文快照、requirements、plan 等 7 份产物模板与状态文件。</p></div>
+        <div class="step"><div class="k">03</div><h3>按阶段推进</h3><p><code>reqflow status / advance / gate</code> 让每步决策落到 decision-log，结项时直接拿来做蒸馏。</p></div>
+      </div>
+      <div class="terminal" style="margin-top:22px">
+        <div class="bar"><i style="background:#fb7185"></i><i style="background:#fbbf24"></i><i style="background:#34d399"></i><span class="t">terminal — install</span><button class="copy" type="button" data-copy="git clone https://github.com/webxiongda/reqflow.git && cd reqflow">复制</button></div>
+<pre><span class="c"># 零依赖，clone 即可自检</span>
+<span class="c">$</span> git clone https://github.com/webxiongda/reqflow.git && cd reqflow
+<span class="c">$</span> node bin/reqflow.mjs validate
+<span class="g">✓</span> workflow 校验通过：4 层 / 8 阶段 / 4 门禁（3 质量门） / 7 产物
+<span class="c">$</span> node bin/reqflow.mjs init my-feature --hooks
+<span class="g">✓</span> 已生成需求工作区 / 已安装 pre-push hook</pre>
+      </div>
+      <div class="cta" style="margin-top:30px"><a class="btn primary" href="https://github.com/webxiongda/reqflow" target="_blank" rel="noopener">★ Star 并查看全部文档</a></div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap row">
+    <span><strong style="color:#cbd5e1">reqflow</strong> · MIT License · 端到端业务需求 Agent 工作流</span>
+    <span>作者 <a href="https://github.com/webxiongda" target="_blank" rel="noopener">@webxiongda</a> · <a href="https://github.com/webxiongda/reqflow" target="_blank" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+
+<script>
+const stages=[
+  {id:'intake',n:'需求进入',layer:'上下文输入层',io:'工作项 / PRD / wiki / codemap → context-snapshot.md',auto:true,
+   stop:'事实源缺失或材料互相冲突时停下补上下文'},
+  {id:'clarify',n:'需求澄清',layer:'业务专家编排层',io:'context-snapshot.md → requirements.md',gate:'G1 需求澄清门',
+   stop:'验收标准不可验证、边界口径未确认、G1 未通过'},
+  {id:'plan',n:'技术方案',layer:'业务专家编排层',io:'requirements.md → plan.md',gate:'G2 技术方案门',
+   stop:'验收方式未定义、配置 schema 未校验、G2 未通过'},
+  {id:'execute',n:'实现',layer:'工具执行层',io:'requirements + plan → 测试先行的代码 / progress.md',gate:'G3 内部质量门',
+   stop:'测试未先行、diff-to-test 无映射、hook 拒绝 push'},
+  {id:'collaborate',n:'CR / Issue 协同',layer:'反馈学习层',io:'CR 评论 / milestone → decision-log.md',auto:true,concurrent:'贯穿全程',
+   stop:'存在 unresolved 评论；涉及范围变更却没有回退到需求或方案'},
+  {id:'verify',n:'验收验证',layer:'工具执行层',io:'requirements + plan → verification.md（真实环境证据）',auto:true,
+   stop:'正例 / 反例 / 回归任一未取证，或证据不可回读'},
+  {id:'release',n:'发布与观察',layer:'工具执行层',io:'verification.md → 变更材料 / 观察记录',gate:'G4 发布确认',
+   stop:'人未确认发布；观察期内发现异常'},
+  {id:'closeout',n:'结项沉淀',layer:'反馈学习层',io:'decision-log + verification → closeout.md + 蒸馏候选',auto:true,
+   stop:'蒸馏候选未经人工确认；项目记忆分支未合并回主干'}
+];
+const bar=document.getElementById('stagebar'),detail=document.getElementById('detail');
+stages.forEach((s,i)=>{
+  const el=document.createElement('button');
+  el.className='stage'+(i===0?' active':'');el.type='button';
+  el.innerHTML='<div class="i">'+String(i).padStart(2,'0')+'</div><div class="n">'+s.n+'</div>';
+  el.addEventListener('click',()=>{
+    [...bar.children].forEach(c=>c.classList.remove('active'));el.classList.add('active');render(s);
+  });
+  bar.appendChild(el);
+});
+function render(s){
+  const tags=[];
+  tags.push('<span class="tag">'+s.layer+'</span>');
+  if(s.gate) tags.push('<span class="tag human">'+s.gate+'</span>');
+  if(s.auto) tags.push('<span class="tag auto">自主推进</span>');
+  if(s.concurrent) tags.push('<span class="tag">'+s.concurrent+'</span>');
+  detail.innerHTML='<div class="top"><h3>'+s.n+'</h3>'+tags.join('')+'</div>'+
+    '<dl><dt>阶段 ID</dt><dd><code>'+s.id+'</code></dd>'+
+    '<dt>输入 / 产物</dt><dd>'+s.io+'</dd>'+
+    '<dt>停止条件</dt><dd>'+s.stop+'</dd></dl>';
+}
+render(stages[0]);
+
+document.querySelectorAll('.copy').forEach(btn=>{
+  btn.addEventListener('click',async()=>{
+    const text=btn.dataset.copy||'';
+    try{await navigator.clipboard.writeText(text);btn.textContent='已复制';}
+    catch{btn.textContent='复制失败';}
+    setTimeout(()=>btn.textContent='复制',1600);
+  });
+});
+
+const io=new IntersectionObserver(entries=>{
+  entries.forEach(e=>{if(e.isIntersecting){e.target.classList.add('show');io.unobserve(e.target)}});
+},{threshold:.12});
+document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+</script>
+</body>
+</html>
